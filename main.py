@@ -12,10 +12,15 @@ import math
 import numpy as np
 import quantstats
 import talib
-
+import time
+import mail
 
 yingli = 1.3
 kuisun = 0.9
+
+outprint = []
+outprint = pd.DataFrame(columns=['time','text'])
+
 
 
 class Strategy(bt.Strategy):
@@ -208,7 +213,7 @@ class Strategy(bt.Strategy):
                 self.buysignal22[d] = bt.ind.Lowest(bt.Or(self.buysignal19[d]==self.buysignal20[d],self.buysignal20[d]==self.buysignal21[d],self.buysignal19[d]==self.buysignal21[d]),period=3)
 
                 self.buysignal13[d] = bt.indicators.Highest(bt.And(bt.talib.CDLMORNINGSTAR(d.open, d.high, d.low, d.close)),period=3)#self.buysignal5[d] <= 50, self.buysignal6[d] <= 70,,self.macd[d].macd < d.close*0.02
-                self.buysignal14[d] = bt.And(self.buysignal13[d],(self.vma5[d] <= 1.2 * self.vma20[d]), (self.vma5[d] >= 0.6 * self.vma20[d]), self.buysignal6[d] <= 70)#, (self.vma5[d] <= 1.2 * self.vma20[d]), (self.vma5[d] >= 0.6 * self.vma20[d]),self.rsi[d].rsi<=40)#
+                self.buysignal14[d] = bt.And(self.buysignal13[d],(self.vma5[d] <= 1.4 * self.vma20[d]), (self.vma5[d] >= 0.6 * self.vma20[d]), self.buysignal6[d] <= 70)#, (self.vma5[d] <= 1.2 * self.vma20[d]), (self.vma5[d] >= 0.6 * self.vma20[d]),self.rsi[d].rsi<=40)#
                 self.buysignal9[d] = bt.indicators.Highest(
                     bt.And(self.buysignal5[d]<=50, (self.vma5[d] < 1.2 * self.vma20[d]), (self.vma5[d] > 0.8 * self.vma20[d]), self.rsi[d].rsi>self.rsi[d].rsi(-1), self.rsi[d].rsi>self.rsi[d].rsi(-2), self.buysignal3[d] > -0.02 * d.close, self.buysignal4[d] < 0.02 * d.close, self.buysignal4[d] >= self.buysignal4[d](-11), self.crossovermacd[d] == 1),
                     period=1)
@@ -556,12 +561,18 @@ class Strategy(bt.Strategy):
 
 
         for i, d in enumerate(self.datas):
-            size_1 = math.floor((cerebro.broker.getvalue() * 0.1 / d.close[0])/100)*100#cerebro.broker.get_cash() * 0.25
+            size_1 = math.floor((cerebro.broker.getvalue() * 0.075 / d.close[0])/100)*100#cerebro.broker.get_cash() * 0.25
             size_2 = math.floor((cerebro.broker.getvalue() * 0.1 / d.close[0])/100)*100#cerebro.broker.get_cash() * 0.1
             pos = self.getposition(d)
             if len(pos):  # 不在场内，则可以买入
-                self.log('{}, 持仓:{}, 成本价:{:.2f}, 当前价:{:.2f}, 价值:{:.2f}, 盈亏:{:.2f}'.format(
-                    d._name, pos.size, pos.price, pos.adjbase, pos.adjbase * pos.size, pos.size * (pos.adjbase - pos.price)))
+                self.log('{}， {}, 持仓:{}, 成本价:{:.2f}, 当前价:{:.2f}, 价值:{:.2f}, 盈亏:{:.2f}'.format(
+                    self.datas[0].datetime.date(0), d._name, pos.size, pos.price, pos.adjbase, pos.adjbase * pos.size, pos.size * (pos.adjbase - pos.price)))
+                datalist = [self.datas[0].datetime.date(0) ,'持仓:{}, 成本价:{:.2f}, 当前价:{:.2f}, 价值:{:.2f}, 盈亏:{:.2f}'.format(
+                    pos.size, pos.price, pos.adjbase, pos.adjbase * pos.size, pos.size * (pos.adjbase - pos.price))]
+                #datalist = pd.DataFrame(columns = ['time', 'test'])
+
+                outprint.loc['{}， {}'.format(self.datas[0].datetime.date(0), d._name)] = datalist
+
 
                 # if self.sellsignal[d][0]:# or self.sellsignal2[d][0] or self.sellsignal3[d][0] or self.sellsignal4[d][0]:# or self.sellsignal6[d][0] or self.sellsignal7[d][0]:# or self.sellsignal5[d][0]:
                 #     self.close(data = d)
@@ -577,21 +588,31 @@ class Strategy(bt.Strategy):
                 if d.close[0] >= yingli * pos.price and self.sellsignal8[d][0]:
                     self.close(data = d)
                     self.log('SELL：{:.6s}'.format(d._name))
+                    datalist = [self.datas[0].datetime.date(0) ,'SELL：{:.6s}'.format(d._name)]
+                    outprint.loc['{}， {}'.format(self.datas[0].datetime.date(0), d._name)] = datalist
                 elif d.close[0] <= kuisun * pos.price:
                     self.close(data=d)
                     self.log('SELL：{:.6s}'.format(d._name))
-                elif d.close[0] >= 1.1 * pos.price and self.sellsignal7[d][0] and self.sellsignal1[d]>d.high[0]:
+                    datalist = [self.datas[0].datetime.date(0) ,'SELL：{:.6s}'.format(d._name)]
+                    outprint.loc['{}， {}'.format(self.datas[0].datetime.date(0), d._name)] = datalist
+                elif d.close[0] >= 1.15 * pos.price and self.sellsignal7[d][0] and self.sellsignal1[d]>d.high[0]:
                     self.close(data=d)
                     self.log('SELL：{:.6s}'.format(d._name))
-                # elif self.sellsignal9[d][0]:
-                #     self.close(data=d)
-                #     self.log('SELL：{:.6s}'.format(d._name))
+                    datalist = [self.datas[0].datetime.date(0) ,'SELL：{:.6s}'.format(d._name)]
+                    outprint.loc['{}， {}'.format(self.datas[0].datetime.date(0), d._name)] = datalist
+                elif self.sellsignal9[d][0]:
+                    self.close(data=d)
+                    self.log('SELL：{:.6s}'.format(d._name))
+                    datalist = [self.datas[0].datetime.date(0) ,'SELL：{:.6s}'.format(d._name)]
+                    outprint.loc['{}， {}'.format(self.datas[0].datetime.date(0), d._name)] = datalist
                 # if self.buysignal23[d]==0:
                 #     self.close(data=d)
                 #     self.log('SELL：{:.6s}'.format(d._name))
-                elif self.buysignal[d][0] and pos.size<size_1*1.5 and (not self.buysignal[d][-1]) and (not self.buysignal[d][-2]) and (not self.buysignal[d][-3]):
+                elif self.buysignal[d][0] and pos.size<size_2*1.5 and (not self.buysignal[d][-1]) and (not self.buysignal[d][-2]) and (not self.buysignal[d][-3]):
                     self.buy(data=d,size=size_2)
                     self.log('BUY：{}, {}, 收盘价：{}'.format(d._name, size_2, pos.adjbase))
+                    datalist = [self.datas[0].datetime.date(0) ,'BUY：{}, {}, 收盘价：{}'.format(d._name, size_2, pos.adjbase)]
+                    outprint.loc['{}， {}'.format(self.datas[0].datetime.date(0), d._name)] = datalist
                 #     #break
 
                 #self.order = self.sell(data=d, size=1, exectype=bt.Order.StopTrail, trailpercent=0.2)
@@ -602,7 +623,9 @@ class Strategy(bt.Strategy):
             elif self.buysignal[d][0] and (not self.buysignal[d][-1]) and (not self.buysignal[d][-2]) and (not self.buysignal[d][-3]):
                 self.buy(data=d,size=size_1)
                 self.log('BUY：{}, {}, 收盘价：{}'.format(d._name, size_1, pos.adjbase))
-
+                datalist = [self.datas[0].datetime.date(0) ,'BUY：{}, {}, 收盘价：{}'.format(d._name, size_2, pos.adjbase)]
+                outprint.loc['{}， {}'.format(self.datas[0].datetime.date(0), d._name)] = datalist
+        #print(outprint)
         # for i, d in enumerate(self.datas):
         #     dt, dn = self.datetime.date(), d._name
         # if not self.position:
@@ -639,15 +662,17 @@ if __name__ == '__main__':
     import tushare as ts
     token = '3b732609d7546245122611a67e2f26bd783a009fc55112bd692af80a'
     ts.set_token(token)
+    curdate = datetime.datetime.now().strftime('%Y%m%d')
+    startdate = time.strftime('%Y%m%d', time.localtime(time.mktime(time.strptime(curdate, "%Y%m%d"))-172800*365))
 
     #stock = '000558.SZ'
-    start_date = '20160701'
-    end_date = '20220101'
+    start_date = startdate
+    end_date = curdate
     stock_list = ['600571.SH', '000932.SZ', '000987.SZ', '600475.SH', '002594.SZ', '002024.SZ', '601633.SH', '600436.SH', '600735.SH',
                   '600887.SH', '600585.SH', '601088.SH', '601336.SH', '600050.SH', '600010.SH', '601919.SH', '601788.SH', '600150.SH',
-                  '601318.SH', '600703.SH', '601668.SH', '600466.SH', '600567.SH', '603000.SH', '603799.SH', '600655.SH', '600795.SH',
-                  '600546.SH', '600970.SH', '601966.SH', '603816.SH', '601233.SH', '600110.SH', '603658.SH', '600068.SH', '601021.SH',
-                  '600486.SH', '603868.SH', '600104.SH', '600547.SH', '600000.SH', '603288.SH', '600115.SH', '600900.SH', '600383.SH',
+                  '601318.SH', '600703.SH', '601668.SH', '600466.SH', '600567.SH', '603000.SH', '603799.SH', '600655.SH', '600795.SH', '002475.SZ',
+                  '600546.SH', '600970.SH', '601966.SH', '603816.SH', '601233.SH', '600110.SH', '603658.SH', '600068.SH', '601021.SH', '601211.SH',
+                  '600486.SH', '603868.SH', '600104.SH', '600547.SH', '600000.SH', '603288.SH', '600115.SH', '600900.SH', '600383.SH', '600030.SH',
                   '601766.SH', '601225.SH', '600111.SH', '600362.SH', '600009.SH', '603993.SH', '000825.SZ', '601117.SH', '601727.SH', '603260.SH',
                   '600352.SH', '601899.SH', '600854.SH', '600346.SH', '600011.SH', '002605.SZ', '000926.SZ', '002437.SZ', '601127.SH', '600726.SH', '000721.SZ', '002123.SZ', '600515.SH', '600570.SH', '600406.SH', '601601.SH']
     flagqx = 1
@@ -656,7 +681,7 @@ if __name__ == '__main__':
     #               '600585.SH', '600570.SH',]
     # flagqx = 1
     # # # # #
-    # start_date = '20060101'
+    # start_date = '20170101'
     # end_date = '20220101'
     # stock_list = ['002123.SZ']
     # flagqx = 0
@@ -689,6 +714,17 @@ if __name__ == '__main__':
     print(f'Starte Portfolio Value {cerebro.broker.getvalue()}')
     result = cerebro.run()
 
+    #print(outprint)
+
+    curtime = datetime.datetime.now().strftime('%Y%m%d%H%M')
+    outprint['difftime'] = outprint.apply(lambda x: (int)((time.mktime(
+        time.strptime(str(x['time']), "%Y-%m-%d")) - time.mktime(
+        time.strptime(str(curtime), '%Y%m%d%H%M'))) / 172800), axis=1)
+    outprint = outprint.loc[outprint["difftime"] >= -1]
+    outprint = outprint[['text']]
+    outprint_html = outprint.to_html
+    ret = mail.mail(outprint_html,curtime,1)
+    #print(outprint)
 
     print('----------------------------')
     print(f'End portfolio value {cerebro.broker.getvalue()}')
@@ -699,12 +735,12 @@ if __name__ == '__main__':
     print(f"Sharpe Ratio:  {round(result[0].analyzers.sharpe.get_analysis()['sharperatio'],2)}")
 
     #print(f"SQN:           {round(result[0].analyzers.sqn.get_analysis()['sqn'],2)}")
-    # portfolio_stats = result[0].analyzers.getbyname('PyFolio')
-    # returns, positions, transactions, gross_lev = portfolio_stats.get_pf_items()
-    # returns.index = returns.index.tz_convert(None)
-    #
-    # quantstats.reports.html(returns, output=f'results/123Result_3.html', title=f'123Analysis')
-    # if flagqx==1:
-    #     for d in cerebro.datas:
-    #         d.plotinfo.plot = False
-    # cerebro.plot()
+    #portfolio_stats = result[0].analyzers.getbyname('PyFolio')
+    #returns, positions, transactions, gross_lev = portfolio_stats.get_pf_items()
+    #returns.index = returns.index.tz_convert(None)
+
+    #quantstats.reports.html(returns, output=f'results/123Result_3.html', title=f'123Analysis')
+    #if flagqx==1:
+    #    for d in cerebro.datas:
+    #        d.plotinfo.plot = False
+    #cerebro.plot()
